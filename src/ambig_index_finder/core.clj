@@ -1,6 +1,4 @@
-(ns ambig-index-finder.core)
+(ns ambig-index-finder.core
+	(:require [yesql.core :refer [defquery]]))
 
-(defn foo
-  "I don't do a whole lot."
-  [x]
-  (println x "Hello, World!"))
+; postmaster -D /usr/local/var/postgres
