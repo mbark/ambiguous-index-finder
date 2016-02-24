@@ -8,4 +8,20 @@
                  [postgresql "9.3-1102.jdbc41"]
                  [mysql/mysql-connector-java "5.1.38"]
                  [org.clojure/java.jdbc "0.4.2"]
-                 [org.clojure/data.json "0.2.6"]])
+                 [org.clojure/data.json "0.2.6"]
+                 [environ "1.0.2"]
+                 [org.clojure/tools.logging "0.3.1"]
+                 [log4j/log4j "1.2.17" :exclusions [javax.mail/mail
+                                                    javax.jms/jms
+                                                    com.sun.jmdk/jmxtools
+                                                    com.sun.jmx/jmxri]]]
+  :plugins [[lein-environ "1.0.0"]]
+  :profiles {:dev        {:jvm-opts ["-Dlogfile.path=development"]
+                          :env {:clj-env "development"
+                                :db-config-file "resources/config/dev.edn"}}
+             :test       {:jvm-opts ["-Dlogfile.path=test"]
+                          :env {:clj-env "test"
+                                :db-config-file "resources/config/dev.edn"}}
+             :production {:jvm-opts ["-Dlogfile.path=production"]
+                          :env {:clj-env "production"
+                                :db-config-file "resources/config/dev.edn"}}})
