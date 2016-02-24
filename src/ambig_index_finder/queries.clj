@@ -1,7 +1,8 @@
 (ns ambig-index-finder.queries
   (:require [clojure.java.jdbc :as j]
             [clojure.data.json :as json]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [clojure.string :refer [trim]]))
 
 (def query-dir "resources/job")
 
@@ -15,7 +16,7 @@
     (exec! "ANALYZE;")))
 
 (defn- read-query [query-id]
-  (slurp (str query-dir "/" query-id ".sql")))
+  (trim (slurp (str query-dir "/" query-id ".sql"))))
 
 (defn- execute-query [db-spec query]
   (do
