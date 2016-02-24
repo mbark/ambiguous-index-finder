@@ -7,19 +7,37 @@
                 (slurp
                   (environ/env :db-config-file))))
 
-(defn- compare-query [db-spec id sample-sizes]
+(defn- repeat-query [db-spec id repetitions sample-size]
+  (do
+    (log/debug "Query" id "will be repeated" repetitions "times")
+    (repeatedly
+      repetitions
+      #(queries/sample-and-query db-spec id sample-size))))
+
+(defn- compare-query [db-spec id repetitions sample-sizes]
   (let [sample-size (first sample-sizes)
         r (rest sample-sizes)
-        result (queries/sample-and-query db-spec id sample-size)]
+        results (repeat-query db-spec id repetitions sample-size)
+        key-val [(keyword (str "sample-" sample-size)) results]]
     (do
-      (log/info "Sampling with" sample-size "for query with id" id)
-      (log/info result)
+      (log/debug "Sampling with" sample-size "for query with id" id)
+      (log/debug results)
       (if (empty? r)
-        [result]
-        (cons result
-              (compare-query db-spec id r))))))
+        (seq [key-val])
+        (cons
+          key-val
+          (compare-query db-spec id repetitions r))))))
+
+(defn evaluate-query [db-name query-id repetitions sample-sizes]
+  (do
+    (log/info "Evaluating query" query-id "for db" db-name "repeating" repetitions "times, with sample sizes" sample-sizes)
+    (into {} (compare-query (db-name db-specs)
+                            query-id
+                            repetitions
+                            sample-sizes))))
 
 (defn -main []
-  (compare-query (:postgresql db-specs) "1a" [1 10 100]))
+  (let [result (evaluate-query :postgresql "1a" 2 [1 2])]
+    (log/debug result)))
 
 ; postmaster -D /usr/local/var/postgres
