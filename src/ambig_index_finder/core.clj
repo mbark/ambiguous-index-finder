@@ -5,7 +5,8 @@
             [clojure.data.json :as json]
             [clojure.tools.cli :refer [parse-opts]]
             [clojure.string :refer [split]]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clj-progress.core :as progress]))
 
 (def output-file (str "output/execution-" (quot (System/currentTimeMillis) 1000)))
 (def output-writer (io/writer output-file))
@@ -31,7 +32,7 @@
                                (:repetitions opts)
                                (:samplesizes opts))
         save-results
-        (fn [r] (doall (map #(save-json-to-file %) r)))]
+        (fn [r] (doall (map #(do (save-json-to-file %) (progress/tick)) r)))]
     (doall (map save-results results))))
 
 (defn -main [& args]
@@ -39,9 +40,11 @@
     (let [opts (:options (parse-opts args cli-options))]
       (log/info "Executing with parameters:" (json/write-str opts))
       (log/info "The results of this execution are saved in" output-file)
+      (progress/init "Queries executed" (* (:repetitions opts) (count (:samplesizes opts))))
       (save-json-to-file opts)
       (execute-evaluation opts)
-      (log/info "Execution finished"))
+      (log/info "Execution finished")
+      (progress/done))
     (finally (.close output-writer))))
 
 ; postmaster -D /usr/local/var/postgres

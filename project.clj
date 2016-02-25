@@ -15,7 +15,8 @@
                                                     javax.jms/jms
                                                     com.sun.jmdk/jmxtools
                                                     com.sun.jmx/jmxri]]
-                 [org.clojure/tools.cli "0.3.3"]]
+                 [org.clojure/tools.cli "0.3.3"]
+                 [intervox/clj-progress "0.2.1"]]
   :plugins [[lein-environ "1.0.0"]]
   :profiles {:dev        {:jvm-opts ["-Dlogfile.path=development"]
                           :env {:clj-env "development"
