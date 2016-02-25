@@ -14,7 +14,8 @@
 (def db-specs (load-string (slurp (environ/env :db-config-file))))
 
 (def cli-options
-  [["-qid" "--queryid QID" "Query id"]
+  [["-q" "--queries QUERIES" "Queries"
+    :parse-fn #(split % #" ")]
    ["-r" "--repetitions REPETITIONS" "Number of repetitions"
     :parse-fn read-string]
    ["-s" "--samplesizes SAMPLE_SIZES" "Sample sizes"
@@ -25,22 +26,38 @@
 (defn save-json-to-file [s]
   (.write output-writer (str (json/write-str s) "\n")))
 
+(defn save-results-to-file [results]
+  (let [save-results-per-repetition
+        (fn [res] (doall (map #(do
+                                 (save-json-to-file %)
+                                 (progress/tick))
+                              res)))
+        save-results-per-sample
+        (fn [res] (doall (map save-results-per-repetition res)))
+        save-results-per-query
+        (fn [res] (doall (map save-results-per-sample res)))]
+    (save-results-per-query results)))
+
 (defn execute-evaluation [opts]
-  (let [results
-        (queries/compare-query ((:database opts) db-specs)
-                               (:queryid opts)
-                               (:repetitions opts)
-                               (:samplesizes opts))
-        save-results
-        (fn [r] (doall (map #(do (save-json-to-file %) (progress/tick)) r)))]
-    (doall (map save-results results))))
+  (save-results-to-file
+    (queries/compare-queries ((:database opts) db-specs)
+                             (:queries opts)
+                             (:samplesizes opts)
+                             (:repetitions opts))))
+
+(defn- select-count [opts]
+  (*
+    (count (:queries opts))
+    (count (:samplesizes opts))
+    (:repetitions opts)))
 
 (defn -main [& args]
   (try
     (let [opts (:options (parse-opts args cli-options))]
       (log/info "Executing with parameters:" (json/write-str opts))
       (log/info "The results of this execution are saved in" output-file)
-      (progress/init "Queries executed" (* (:repetitions opts) (count (:samplesizes opts))))
+      (progress/set-progress-bar! ":header [:bar] :percent :done/:total (Elapsed: :elapsed seconds, ETA: :eta seconds)")
+      (progress/init "SELECTs executed" (select-count opts))
       (save-json-to-file opts)
       (execute-evaluation opts)
       (log/info "Execution finished")
@@ -48,4 +65,4 @@
     (finally (.close output-writer))))
 
 ; postmaster -D /usr/local/var/postgres
-; lein run --queryid=1a --repetitions=2 --samplesizes='1 2' --database=postgresql
+; lein run --queryid='1a 1b' --repetitions=2 --samplesizes='1 2' --database=postgresql

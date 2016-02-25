@@ -39,17 +39,27 @@
     (resample-with! db-spec n)
     (explain-query db-spec id)))
 
-(defn- repeat-query [db-spec id repetitions sample-size]
+(defn- repeat-query [db-spec id sample-size repetitions]
   (repeatedly
     repetitions
     #(sample-and-query db-spec id sample-size)))
 
-(defn compare-query [db-spec id repetitions sample-sizes]
+(defn compare-query [db-spec query-id sample-sizes repetitions]
   (let [sample-size (first sample-sizes)
         r (rest sample-sizes)
-        results (repeat-query db-spec id repetitions sample-size)]
+        results (repeat-query db-spec query-id sample-size repetitions)]
     (if (empty? r)
       [results]
       (cons
         results
-        (compare-query db-spec id repetitions r)))))
+        (compare-query db-spec query-id r repetitions)))))
+
+(defn compare-queries [db-spec queries sample-sizes repetitions]
+  (let [query (first queries)
+        r (rest queries)
+        results (compare-query db-spec query sample-sizes repetitions)]
+    (if (empty? r)
+      [results]
+      (cons
+        results
+        (compare-queries db-spec r sample-sizes repetitions)))))
