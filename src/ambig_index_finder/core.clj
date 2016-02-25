@@ -8,10 +8,7 @@
             [clojure.java.io :as io]
             [clj-progress.core :as progress]))
 
-(def output-file (str "output/execution-" (quot (System/currentTimeMillis) 1000)))
-(io/make-parents output-file)
-(def output-writer (io/writer output-file))
-
+(def writer (atom nil))
 (def db-specs (load-string (slurp (environ/env :db-config-file))))
 
 (def cli-options
@@ -24,10 +21,16 @@
    ["-db" "--database DATABASE" "Database"
     :parse-fn keyword]])
 
-(defn save-json-to-file [s]
-  (.write output-writer (str (json/write-str s) "\n")))
+(defn- init-writer []
+  (let [output-file (str "output/execution-"
+                         (quot (System/currentTimeMillis) 1000))]
+    (do (reset! writer (io/writer output-file))
+      output-file)))
 
-(defn save-results-to-file [results]
+(defn- save-json-to-file [s]
+  (.write @writer (str (json/write-str s) "\n")))
+
+(defn- save-results-to-file [results]
   (let [save-results-per-repetition
         (fn [res] (dorun (map #(do
                                  (save-json-to-file %)
@@ -54,16 +57,19 @@
 
 (defn -main [& args]
   (try
-    (let [opts (:options (parse-opts args cli-options))]
+    (let [opts (:options (parse-opts args cli-options))
+          output-file (init-writer)]
       (log/info "Executing with parameters:" (json/write-str opts))
       (log/info "The results of this execution are saved in" output-file)
       (progress/set-progress-bar! ":header [:bar] :percent :done/:total (Elapsed: :elapsed seconds, ETA: :eta seconds)")
       (progress/init "SELECTs executed" (select-count opts))
+      (io/make-parents output-file)
       (save-json-to-file opts)
       (execute-evaluation opts)
       (log/info "Execution finished")
-      (progress/done))
-    (finally (.close output-writer))))
+      (progress/done)
+      (println (str "Execution finished, results are saved in " output-file)))
+    (finally (.close @writer))))
 
 ; postmaster -D /usr/local/var/postgres
 ; lein run --queryid='1a 1b' --repetitions=2 --samplesizes='1 2' --database=postgresql

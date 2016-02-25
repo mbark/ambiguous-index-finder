@@ -44,22 +44,16 @@
     repetitions
     #(sample-and-query db-spec id sample-size)))
 
-(defn compare-query [db-spec query-id sample-sizes repetitions]
-  (let [sample-size (first sample-sizes)
-        r (rest sample-sizes)
-        results (repeat-query db-spec query-id sample-size repetitions)]
-    (if (empty? r)
-      [results]
-      (cons
-        results
-        (compare-query db-spec query-id r repetitions)))))
+(defn compare-query [db-spec query-id [sample-size & r] repetitions]
+  (if (nil? sample-size)
+    []
+    (cons
+      (repeat-query db-spec query-id sample-size repetitions)
+      (compare-query db-spec query-id r repetitions))))
 
-(defn compare-queries [db-spec queries sample-sizes repetitions]
-  (let [query (first queries)
-        r (rest queries)
-        results (compare-query db-spec query sample-sizes repetitions)]
-    (if (empty? r)
-      [results]
-      (cons
-        results
-        (compare-queries db-spec r sample-sizes repetitions)))))
+(defn compare-queries [db-spec [query & r] sample-sizes repetitions]
+  (if (nil? query)
+    []
+    (cons
+      (compare-query db-spec query sample-sizes repetitions)
+      (compare-queries db-spec r sample-sizes repetitions))))
