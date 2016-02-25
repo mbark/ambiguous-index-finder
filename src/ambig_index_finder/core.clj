@@ -28,14 +28,14 @@
 
 (defn save-results-to-file [results]
   (let [save-results-per-repetition
-        (fn [res] (doall (map #(do
+        (fn [res] (dorun (map #(do
                                  (save-json-to-file %)
                                  (progress/tick))
                               res)))
         save-results-per-sample
-        (fn [res] (doall (map save-results-per-repetition res)))
+        (fn [res] (dorun (map save-results-per-repetition res)))
         save-results-per-query
-        (fn [res] (doall (map save-results-per-sample res)))]
+        (fn [res] (dorun (map save-results-per-sample res)))]
     (save-results-per-query results)))
 
 (defn execute-evaluation [opts]
