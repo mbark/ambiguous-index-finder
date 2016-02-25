@@ -12,3 +12,4 @@ pom.xml.asc
 resources/config/*
 log/*
 .DS_Store
+output/*
