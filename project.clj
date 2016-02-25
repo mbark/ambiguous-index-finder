@@ -27,4 +27,4 @@
              :production {:jvm-opts ["-Dlogfile.path=production"]
                           :env {:clj-env "production"
                                 :db-config-file "resources/config/dev.edn"}}}
-  :clean-targets [:target-path :compile-path "output/*"])
+  :clean-targets [:target-path :compile-path "output" "log"])

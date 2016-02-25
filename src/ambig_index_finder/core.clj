@@ -9,6 +9,7 @@
             [clj-progress.core :as progress]))
 
 (def output-file (str "output/execution-" (quot (System/currentTimeMillis) 1000)))
+(io/make-parents output-file)
 (def output-writer (io/writer output-file))
 
 (def db-specs (load-string (slurp (environ/env :db-config-file))))
