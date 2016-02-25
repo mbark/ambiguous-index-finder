@@ -34,7 +34,22 @@
        (.getValue)
        (json/read-str)))
 
-(defn sample-and-query [db-spec id n]
+(defn- sample-and-query [db-spec id n]
   (do
     (resample-with! db-spec n)
     (explain-query db-spec id)))
+
+(defn- repeat-query [db-spec id repetitions sample-size]
+  (repeatedly
+    repetitions
+    #(sample-and-query db-spec id sample-size)))
+
+(defn compare-query [db-spec id repetitions sample-sizes]
+  (let [sample-size (first sample-sizes)
+        r (rest sample-sizes)
+        results (repeat-query db-spec id repetitions sample-size)]
+    (if (empty? r)
+      [results]
+      (cons
+        results
+        (compare-query db-spec id repetitions r)))))
