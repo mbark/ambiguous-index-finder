@@ -61,7 +61,7 @@
     (count (:samplesizes opts))
     (:repetitions opts)))
 
-(defn print-cli-error [cli-opts]
+(defn- print-cli-error [cli-opts]
   (print "Missing options: ")
   (dorun (map #(print (str % "; ")) (:errors cli-opts)))
   (println "\nUsage:\n" (:summary cli-opts)))
