@@ -17,7 +17,8 @@
                                                     com.sun.jmx/jmxri]]
                  [org.clojure/tools.cli "0.3.3"]
                  [intervox/clj-progress "0.2.1"]]
-  :plugins [[lein-environ "1.0.0"]]
+  :plugins [[lein-environ "1.0.0"]
+            [lein-shell "0.5.0"]]
   :profiles {:dev        {:jvm-opts ["-Dlogfile.path=development"]
                           :env {:clj-env "development"
                                 :db-config-file "resources/config/dev.edn"}}
@@ -27,4 +28,7 @@
              :production {:jvm-opts ["-Dlogfile.path=production"]
                           :env {:clj-env "production"
                                 :db-config-file "resources/config/dev.edn"}}}
+  :aliases {"test-query" ["run" "--queries='1a 1b'" "--repetitions=2" "--samplesizes='1 2'" "--database=postgresql"]
+            "parse" ["run" "-m" "ambig-index-finder.parser"]
+            "start-postgres" ["shell" "postmaster" "-D" "/usr/local/var/postgres"]}
   :clean-targets [:target-path :compile-path "output" "log"])

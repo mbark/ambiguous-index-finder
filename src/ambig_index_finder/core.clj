@@ -12,14 +12,18 @@
 (def db-specs (load-string (slurp (environ/env :db-config-file))))
 
 (def cli-options
-  [["-q" "--queries QUERIES" "Queries"
-    :parse-fn #(split % #" ")]
-   ["-r" "--repetitions REPETITIONS" "Number of repetitions"
-    :parse-fn read-string]
-   ["-s" "--samplesizes SAMPLE_SIZES" "Sample sizes"
-    :parse-fn #(map read-string (split % #" "))]
-   ["-db" "--database DATABASE" "Database"
-    :parse-fn keyword]])
+  [["-q" "--queries QUERIES" "The queries to run"
+    :parse-fn #(split % #" ")
+    :missing "queries not specified"]
+   ["-s" "--samplesizes SAMPLE_SIZES" "The sample sizes per query"
+    :parse-fn #(map read-string (split % #" "))
+    :missing "sample sizes not specified"]
+   ["-r" "--repetitions REPETITIONS" "The number of repetitions per sample size"
+    :parse-fn read-string
+    :missing "repetitions not specified"]
+   ["-db" "--database DATABASE" "The database to run the tests on"
+    :parse-fn keyword
+    :missing "database not specified"]])
 
 (defn- init-writer []
   (let [output-file (str "output/execution-"
@@ -55,21 +59,26 @@
     (count (:samplesizes opts))
     (:repetitions opts)))
 
-(defn -main [& args]
-  (try
-    (let [opts (:options (parse-opts args cli-options))
-          output-file (init-writer)]
-      (log/info "Executing with parameters:" (json/write-str opts))
-      (log/info "The results of this execution are saved in" output-file)
-      (progress/set-progress-bar! ":header [:bar] :percent :done/:total (Elapsed: :elapsed seconds, ETA: :eta seconds)")
-      (progress/init "SELECTs executed" (select-count opts))
-      (io/make-parents output-file)
-      (save-json-to-file opts)
-      (execute-evaluation opts)
-      (log/info "Execution finished")
-      (progress/done)
-      (println (str "Execution finished, results are saved in " output-file)))
-    (finally (.close @writer))))
+(defn print-cli-error [cli-opts]
+  (print "Missing options: ")
+  (dorun (map #(print (str % "; ")) (:errors cli-opts)))
+  (println "\nUsage:\n" (:summary cli-opts)))
 
-; postmaster -D /usr/local/var/postgres
-; lein run --queryid='1a 1b' --repetitions=2 --samplesizes='1 2' --database=postgresql
+(defn -main [& args]
+  (let [cli-opts (parse-opts args cli-options)]
+    (if (:errors cli-opts)
+      (print-cli-error cli-opts)
+      (try
+        (let [opts (:options (parse-opts args cli-options))
+              output-file (init-writer)]
+          (log/info "Executing with parameters:" (json/write-str opts))
+          (log/info "The results of this execution are saved in" output-file)
+          (progress/set-progress-bar! ":header [:bar] :percent :done/:total (Elapsed: :elapsed seconds, ETA: :eta seconds)")
+          (progress/init "SELECTs executed" (select-count opts))
+          (io/make-parents output-file)
+          (save-json-to-file opts)
+          (execute-evaluation opts)
+          (log/info "Execution finished")
+          (progress/done)
+          (println (str "Execution finished, results are saved in " output-file)))
+        (finally (.close @writer))))))
