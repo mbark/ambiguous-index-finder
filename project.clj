@@ -16,7 +16,8 @@
                                                     com.sun.jmdk/jmxtools
                                                     com.sun.jmx/jmxri]]
                  [org.clojure/tools.cli "0.3.3"]
-                 [intervox/clj-progress "0.2.1"]]
+                 [intervox/clj-progress "0.2.1"]
+                 [slamhound "1.5.5"]]
   :plugins [[lein-environ "1.0.0"]
             [lein-shell "0.5.0"]]
   :profiles {:dev        {:jvm-opts ["-Dlogfile.path=development"]
@@ -30,5 +31,6 @@
                                 :db-config-file "resources/config/dev.edn"}}}
   :aliases {"test-query" ["run" "--queries='1a 1b'" "--repetitions=2" "--samplesizes='1 2'" "--database=postgresql"]
             "parse" ["run" "-m" "ambig-index-finder.parser"]
-            "start-postgres" ["shell" "postmaster" "-D" "/usr/local/var/postgres"]}
+            "start-postgres" ["shell" "postmaster" "-D" "/usr/local/var/postgres"]
+            "slamhound" ["run" "-m" "slam.hound"]}
   :clean-targets [:target-path :compile-path "output" "log"])

@@ -1,12 +1,12 @@
 (ns ambig-index-finder.core
   (:require [ambig-index-finder.queries :as queries]
-            [clojure.tools.logging :as log]
-            [environ.core :as environ]
+            [clj-progress.core :as progress]
             [clojure.data.json :as json]
-            [clojure.tools.cli :refer [parse-opts]]
-            [clojure.string :refer [split]]
             [clojure.java.io :as io]
-            [clj-progress.core :as progress]))
+            [clojure.string :refer [split]]
+            [clojure.tools.cli :refer [parse-opts]]
+            [clojure.tools.logging :as log]
+            [environ.core :as environ]))
 
 (def writer (atom nil))
 (def db-specs (load-string (slurp (environ/env :db-config-file))))
@@ -28,7 +28,8 @@
 (defn- init-writer []
   (let [output-file (str "output/execution-"
                          (quot (System/currentTimeMillis) 1000))]
-    (do (reset! writer (io/writer output-file))
+    (do
+      (reset! writer (io/writer output-file))
       output-file)))
 
 (defn- save-json-to-file [s]

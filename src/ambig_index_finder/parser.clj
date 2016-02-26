@@ -1,8 +1,7 @@
 (ns ambig-index-finder.parser
-  (:require [clojure.tools.logging :as log]
-            [environ.core :as environ]
-            [clojure.data.json :as json]
-            [clojure.java.io :as io]))
+  (:require [clojure.data.json :as json]
+            [clojure.java.io :as io]
+            [clojure.tools.logging :as log]))
 
 (defn- plans-per-query [opts]
   (* (count (:samplesizes opts))

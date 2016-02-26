@@ -1,8 +1,8 @@
 (ns ambig-index-finder.queries
-  (:require [clojure.java.jdbc :as j]
-            [clojure.data.json :as json]
-            [clojure.tools.logging :as log]
-            [clojure.string :refer [trim]]))
+  (:require [clojure.data.json :as json]
+            [clojure.java.jdbc :as j]
+            [clojure.string :refer [trim]]
+            [clojure.tools.logging :as log]))
 
 (def query-dir "resources/job")
 
