@@ -1,7 +1,7 @@
 (ns ambig-index-finder.queries
   (:require [clojure.data.json :as json]
             [clojure.java.jdbc :as j]
-            [clojure.string :refer [trim]]
+            [clojure.string :refer [join trim]]
             [clojure.tools.logging :as log]))
 
 (def query-dir "resources/job")
@@ -10,7 +10,7 @@
   (letfn [(exec! [& s]
                  (do
                    (log/debug "Executing non-select query" s)
-                   (j/execute! db-spec [(apply str s)])))]
+                   (j/execute! db-spec [(join s)])))]
     (exec! "DELETE FROM pg_statistic;")
     (exec! "SET default_statistics_target TO " n ";")
     (exec! "ANALYZE;")))

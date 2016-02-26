@@ -26,11 +26,12 @@
     :missing "database not specified"]])
 
 (defn- init-writer []
-  (let [output-file (str "output/execution-"
-                         (quot (System/currentTimeMillis) 1000))]
-    (do
-      (reset! writer (io/writer output-file))
-      output-file)))
+  (let [output-file
+        (str
+          "output/execution-"
+          (quot (System/currentTimeMillis) 1000))]
+    (reset! writer (io/writer output-file))
+    output-file))
 
 (defn- save-json-to-file [s]
   (.write @writer (str (json/write-str s) "\n")))
