@@ -13,3 +13,4 @@ resources/config/*
 log/*
 .DS_Store
 output/*
+*.tmp
