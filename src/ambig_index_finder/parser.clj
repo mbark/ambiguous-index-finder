@@ -23,14 +23,13 @@
                 o))]
     out))
 
-(defn- print-index-selections [plan-diff]
-  (println (postwalk transformer plan-diff)))
+(defn- find-index-selections [plan-diff]
+  (postwalk transformer plan-diff))
 
 (defn- diff-plans [plan1 plan2]
-  (let [[diff1 diff2 same] (diff
-                             (first plan1)
-                             (first plan2))]
-    (print-index-selections same))
+  (let [[only-in-1 only-in-2 same]
+        (diff (first plan1) (first plan2))]
+    (log/debug "Index selections in common" (find-index-selections same)))
   plan2)
 
 (defn compare-plans [plans-for-query]
