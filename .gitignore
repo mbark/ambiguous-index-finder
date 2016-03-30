@@ -10,6 +10,7 @@ pom.xml.asc
 .hgignore
 .hg/
 resources/config/*
+resources/queries/*
 log/*
 .DS_Store
 output/*
