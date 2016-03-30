@@ -32,7 +32,7 @@
              :production {:jvm-opts ["-Dlogfile.path=production"]
                           :env {:clj-env "production"
                                 :db-config-file "resources/config/dev.edn"}}}
-  :aliases {"test-query" ["run" "--queries='1a 1b'" "--repetitions=2" "--samplesizes='1 2'" "--database=postgresql"]
+  :aliases {"test-query" ["run" "--queries=pgtest" "--repetitions=2" "--samplesizes=1 2" "--database=postgresql"]
             "parse" ["run" "-m" "ambig-index-finder.parser"]
             "start-postgres" ["shell" "sudo" "service" "podtgresql-9.5" "start"]
             "slamhound" ["run" "-m" "slam.hound"]

@@ -4,7 +4,7 @@
             [clojure.string :refer [join trim]]
             [clojure.tools.logging :as log]))
 
-(def query-dir "resources/job")
+(def query-dir "resources/queries")
 
 (defn- resample-with! [db-spec n]
   (letfn [(exec! [& s]
@@ -13,7 +13,7 @@
                    (j/execute! db-spec [(join s)])))]
     (exec! "DELETE FROM pg_statistic;")
     (exec! "SET default_statistics_target TO " n ";")
-    (exec! "ANALYZE;")))
+    (exec! "ANALYZE riskunit;")))
 
 (defn- read-query [query-id]
   (trim (slurp (str query-dir "/" query-id ".sql"))))

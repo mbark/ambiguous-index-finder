@@ -67,6 +67,7 @@
   (println "\nUsage:\n" (:summary cli-opts)))
 
 (defn -main [& args]
+  (log/debug "Calling main with arguments:" args)
   (let [cli-opts (parse-opts args cli-options)]
     (if (:errors cli-opts)
       (print-cli-error cli-opts)
