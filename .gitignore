@@ -14,5 +14,6 @@ resources/queries/*
 log/*
 .DS_Store
 output/*
+parse-results/*
 *.tmp
 *.swp
