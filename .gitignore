@@ -15,5 +15,6 @@ log/*
 .DS_Store
 output/*
 parse-results/*
+loadfiles/*
 *.tmp
 *.swp
