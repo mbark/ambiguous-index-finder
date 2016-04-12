@@ -11,11 +11,12 @@
   (* (count (:samplesizes opts))
      (:repetitions opts)))
 
+(def index-access-identifier "Alias")
 (def relation-accesses (atom []))
 
 ;; Not the best solution, but the easiest in this case
 (defn- save-if-relation-access [o]
-  (if (and (map? o) (contains? o "Relation Name"))
+  (if (and (map? o) (contains? o index-access-identifier))
     (swap! relation-accesses conj o))
   o)
 
@@ -27,7 +28,7 @@
 (defn- group-by-relation [accesses]
   (apply merge-with concat
          (map
-           (fn [l] (group-by #(get % "Relation Name") l))
+           (fn [l] (group-by #(get % index-access-identifier) l))
            accesses)))
 
 (defn- diff-relation-access [access-by-relation]
@@ -46,7 +47,9 @@
     diff))
 
 (defn analyze-plans-for-all-queries [all-plans]
-  (map analyze-plans-for-query all-plans))
+  (map
+    #(map analyze-plans-for-query %)
+    all-plans))
 
 (defn- save-parse-result [file-name parse-result]
   (let [file-path (str parse-results-dir file-name)]
@@ -64,7 +67,7 @@
                 opts (json/read-str (first lines) :key-fn keyword)
                 plans (partition
                         (plans-per-query opts)
-                        (mapcat json/read-str (rest lines)))
+                        (map json/read-str (rest lines)))
                 parse-result (analyze-plans-for-all-queries plans)]
             (log/info "Analyzing plans found in" (first args) "which has options" opts)
             (save-parse-result file-name parse-result)))))))
