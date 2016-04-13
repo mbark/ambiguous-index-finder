@@ -13,7 +13,7 @@
                    (j/execute! db-spec [(join s)])))]
     (exec! "DELETE FROM pg_statistic;")
     (exec! "SET default_statistics_target TO " n ";")
-    (exec! "ANALYZE riskunit;")))
+    (exec! "ANALYZE;")))
 
 (defn- read-query [query-id]
   (trim (slurp (str query-dir "/" query-id ".sql"))))
@@ -26,7 +26,7 @@
 (defn- explain-query [db-spec id]
   (->> id
        (read-query)
-       (str "EXPLAIN (ANALYZE TRUE, FORMAT JSON, VERBOSE TRUE) ")
+       (str "EXPLAIN (ANALYZE FALSE, FORMAT JSON, VERBOSE TRUE) ")
        (vector)
        (execute-query db-spec)
        (first)
