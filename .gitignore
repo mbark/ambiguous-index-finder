@@ -13,9 +13,10 @@ resources/config/*
 resources/queries/*
 log/*
 .DS_Store
-output/*
-parse-results/*
-analyze-results/*
-loadfiles/*
 *.tmp
 *.swp
+
+# output files
+plans/*
+parses/*
+analyzes/*

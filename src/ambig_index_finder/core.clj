@@ -14,24 +14,18 @@
 (def parse-dir "parses")
 (def analyze-dir "analyzes")
 
-(def generate-cli-options
-  [["-q" "--query QUERY" "The query to run"
-    :parse-fn str
-    :missing "query not specified"]
-   ["-s" "--samplesizes SAMPLE_SIZES" "The sample sizes per query"
-    :parse-fn #(map read-string (split % #" "))
-    :missing "sample sizes not specified"]
-   ["-r" "--repetitions REPETITIONS" "The number of repetitions per sample size"
-    :parse-fn read-string
-    :missing "repetitions not specified"]
-   ["-db" "--database DATABASE" "The database to run the tests on"
-    :parse-fn keyword
-    :missing "database not specified"]])
-
-(def main-cli-options
+(def cli-options
   [["-steps" "--steps STEPS" "The different steps of execution (generate, parse, analyze)"
     :parse-fn #(map keyword (split % #" "))
-    :missing "steps to run not specified"]])
+    :missing "steps to run not specified"]
+   ["-q" "--query QUERY" "The query to run"
+    :parse-fn str]
+   ["-s" "--samplesizes SAMPLE_SIZES" "The sample sizes per query"
+    :parse-fn #(map read-string (split % #" "))]
+   ["-r" "--repetitions REPETITIONS" "The number of repetitions per sample size"
+    :parse-fn read-string]
+   ["-db" "--database DATABASE" "The database to run the tests on"
+    :parse-fn keyword ]])
 
 (defn plans-per-query [opts]
   (*
@@ -40,7 +34,7 @@
 
 (defn- get-output-file [dir]
   (let
-      [chars (map char (range 33 127))
+      [chars (map char (range 97 122))
        start (reduce str  (take 3 (repeatedly #(rand-nth chars))))
        end (quot (System/currentTimeMillis) 1000)
        file-name (str start "-" end)
@@ -59,7 +53,7 @@
                         (progress/tick))
         save-results-per-repetition #(dorun (map save-query %))
         save-results-per-sample #(dorun (map save-results-per-repetition %))]
-    (map save-results-per-sample plans)))
+    (dorun (map save-results-per-sample plans))))
 
 (defn- save-parsed-plans [file plans]
   (dorun (map
@@ -71,20 +65,20 @@
   (dorun (map #(print (str % "; ")) (:errors cli-opts)))
   (println "\nUsage:\n" (:summary cli-opts)))
 
-(defn- parse-cli-opts [args options]
-  (let [cli-opts (parse-opts args options)]
+(defn- parse-cli-opts [args]
+  (let [cli-opts (parse-opts args cli-options)]
     (if (:errors cli-opts)
       (print-cli-error cli-opts)
       (:options cli-opts))))
 
 (defn generate-plans [args]
-  (let [opts (parse-cli-opts args generate-cli-options)
+  (let [opts (parse-cli-opts args)
         output-file (get-output-file plans-dir)]
     (log/info "Generating plans with options:" (json/write-str opts))
     (log/info "The results are saved in" output-file)
     (progress/set-progress-bar! ":header [:bar] :percent :done/:total (Elapsed: :elapsed seconds, ETA: :eta seconds)")
     (progress/init "SELECTs executed" (plans-per-query opts))
-    (write-opts opts)
+    (write-opts output-file opts)
     (save-plans output-file (generator/generate-plans opts))
     (log/info "Execution finished")
     (progress/done)
@@ -92,11 +86,11 @@
     output-file))
 
 (defn- read-plans-from-file [reader]
-  (let [lines (line-seq reader)]
-    opts (json/read-str (first lines) :key-fn keyword)
-    plans (partition
-           (:samplesizes opts)
-           (map json/read-str (rest lines)))
+  (let [lines (line-seq reader)
+        opts (json/read-str (first lines) :key-fn keyword)
+        plans (partition
+                (:samplesizes opts)
+                (map json/read-str (rest lines)))]
     [opts plans]))
 
 (defn parse-plans [input-file]
@@ -104,6 +98,7 @@
     (let [output-file (get-output-file parse-dir)
           [opts plans] (read-plans-from-file reader)]
       (log/info "Parsing plans in" input-file "which has options" opts)
+      (write-opts output-file opts)
       (save-parsed-plans output-file (parser/parse-plans plans))
       (println (str "Done parsing plans, results are saved in " output-file))
       output-file)))
@@ -113,12 +108,13 @@
     (let [output-file (get-output-file analyze-dir)
           [opts plans] (read-plans-from-file reader)]
       (log/info "Analyzing plans in" input-file "which has options" opts)
+      (write-opts output-file opts)
       (save-parsed-plans output-file (analyzer/analyze-plans plans))
       (println (str "Done analyzing plans, results are saved in " output-file))
       output-file)))
 
 (defn -main [& args]
-  (let [opts (parse-cli-opts args main-cli-options)
+  (let [opts (parse-cli-opts args)
         steps (:steps opts)]
     (log/debug "Calling main with arguments:" args)
     (log/info "Executing steps" steps)
