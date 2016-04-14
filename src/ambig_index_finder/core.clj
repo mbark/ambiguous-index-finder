@@ -1,5 +1,7 @@
 (ns ambig-index-finder.core
-  (:require [ambig-index-finder.queries :as queries]
+  (:require [ambig-index-finder.generator :as generator]
+            [ambig-index-finder.parser :as parser]
+            [ambig-index-finder.analyzer :as analyzer]
             [clj-progress.core :as progress]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
@@ -8,13 +10,14 @@
             [clojure.tools.logging :as log]
             [environ.core :as environ]))
 
-(def writer (atom nil))
-(def db-specs (load-string (slurp (environ/env :db-config-file))))
+(def plans-dir "plans")
+(def parse-dir "parses")
+(def analyze-dir "analyzes")
 
-(def cli-options
-  [["-q" "--queries QUERIES" "The queries to run"
-    :parse-fn #(split % #" ")
-    :missing "queries not specified"]
+(def generate-cli-options
+  [["-q" "--query QUERY" "The query to run"
+    :parse-fn str
+    :missing "query not specified"]
    ["-s" "--samplesizes SAMPLE_SIZES" "The sample sizes per query"
     :parse-fn #(map read-string (split % #" "))
     :missing "sample sizes not specified"]
@@ -25,63 +28,108 @@
     :parse-fn keyword
     :missing "database not specified"]])
 
-(defn- init-writer []
-  (let [output-file
-        (str
-          "output/execution-"
-          (quot (System/currentTimeMillis) 1000))]
-    (reset! writer (io/writer output-file))
-    output-file))
+(def main-cli-options
+  [["-steps" "--steps STEPS" "The different steps of execution (generate, parse, analyze)"
+    :parse-fn #(map keyword (split % #" "))
+    :missing "steps to run not specified"]])
 
-(defn- save-json-to-file [s]
-  (.write @writer (str (json/write-str s) "\n")))
-
-(defn- save-results-to-file [results]
-  (let [save-results-per-repetition
-        (fn [res] (dorun (map #(do
-                                 (save-json-to-file %)
-                                 (progress/tick))
-                              res)))
-        save-results-per-sample
-        (fn [res] (dorun (map save-results-per-repetition res)))
-        save-results-per-query
-        (fn [res] (dorun (map save-results-per-sample res)))]
-    (save-results-per-query results)))
-
-(defn execute-evaluation [opts]
-  (save-results-to-file
-    (queries/compare-queries ((:database opts) db-specs)
-                             (:queries opts)
-                             (:samplesizes opts)
-                             (:repetitions opts))))
-
-(defn- select-count [opts]
+(defn plans-per-query [opts]
   (*
-    (count (:queries opts))
-    (count (:samplesizes opts))
-    (:repetitions opts)))
+   (count (:samplesizes opts))
+   (:repetitions opts)))
+
+(defn- get-output-file [dir]
+  (let
+      [chars (map char (range 33 127))
+       start (reduce str  (take 3 (repeatedly #(rand-nth chars))))
+       end (quot (System/currentTimeMillis) 1000)
+       file-name (str start "-" end)
+       file (str dir "/" file-name)]
+    (io/make-parents file)
+    file))
+
+(defn- write-opts [file opts]
+  (spit file (str (json/write-str opts) "\n")))
+
+(defn- add-plan [file plan]
+  (spit file (str (json/write-str plan) "\n") :append))
+
+(defn- save-plans [file plans]
+  (let [save-query #(do (add-plan file %)
+                        (progress/tick))
+        save-results-per-repetition #(dorun (map save-query %))
+        save-results-per-sample #(dorun (map save-results-per-repetition %))]
+    (map save-results-per-sample plans)))
+
+(defn- save-parsed-plans [file plans]
+  (dorun (map
+          #(do (add-plan file %))
+          plans)))
 
 (defn- print-cli-error [cli-opts]
   (print "Missing options: ")
   (dorun (map #(print (str % "; ")) (:errors cli-opts)))
   (println "\nUsage:\n" (:summary cli-opts)))
 
-(defn -main [& args]
-  (log/debug "Calling main with arguments:" args)
-  (let [cli-opts (parse-opts args cli-options)]
+(defn- parse-cli-opts [args options]
+  (let [cli-opts (parse-opts args options)]
     (if (:errors cli-opts)
       (print-cli-error cli-opts)
-      (try
-        (let [opts (:options (parse-opts args cli-options))
-              output-file (init-writer)]
-          (log/info "Executing with parameters:" (json/write-str opts))
-          (log/info "The results of this execution are saved in" output-file)
-          (progress/set-progress-bar! ":header [:bar] :percent :done/:total (Elapsed: :elapsed seconds, ETA: :eta seconds)")
-          (progress/init "SELECTs executed" (select-count opts))
-          (io/make-parents output-file)
-          (save-json-to-file opts)
-          (execute-evaluation opts)
-          (log/info "Execution finished")
-          (progress/done)
-          (println (str "Execution finished, results are saved in " output-file)))
-        (finally (.close @writer))))))
+      (:options cli-opts))))
+
+(defn generate-plans [args]
+  (let [opts (parse-cli-opts args generate-cli-options)
+           output-file (get-output-file plans-dir)]
+     (log/info "Generating plans with options:" (json/write-str opts))
+     (log/info "The results are saved in" output-file)
+     (progress/set-progress-bar! ":header [:bar] :percent :done/:total (Elapsed: :elapsed seconds, ETA: :eta seconds)")
+     (progress/init "SELECTs executed" (plans-per-query opts))
+     (write-opts opts)
+     (save-plans output-file (generator/generate-plans opts))
+     (log/info "Execution finished")
+     (progress/done)
+     (println (str "Done generating plans, results are saved in " output-file))
+     output-file))
+
+(defn- read-plans-from-file [reader]
+  (let [lines (line-seq reader)
+         opts (json/read-str (first lines) :key-fn keyword)
+         plans (partition
+                (:samplesizes opts)
+                (map json/read-str (rest lines)))]
+     [opts plans]))
+
+(parse-plans "output/execution-1459955039")
+
+(defn parse-plans [input-file]
+  (with-open [reader (io/reader input-file)]
+    (let [output-file (get-output-file parse-dir)
+          [opts plans] (read-plans-from-file reader)]
+      (log/info "Parsing plans in" input-file "which has options" opts)
+      (save-parsed-plans output-file (parser/parse-plans plans))
+      (println (str "Done parsing plans, results are saved in " output-file))
+      output-file)))
+
+(defn analyze-plans [input-file]
+  (with-open [reader (io/reader input-file)]
+    (let [output-file (get-output-file analyze-dir)
+          [opts plans] (read-plans-from-file reader)]
+      (log/info "Analyzing plans in" input-file "which has options" opts)
+      (save-parsed-plans output-file (analyzer/analyze-plans plans))
+      (println (str "Done analyzing plans, results are saved in " output-file))
+      output-file)))
+
+(defn -main [& args]
+  (let [opts (parse-cli-opts args main-cli-options)
+        steps (:steps opts)]
+    (log/debug "Calling main with arguments:" args)
+    (log/info "Executing steps" steps)
+    (let [generate? (some #{:generate} steps)
+          parse? (some #{:parse} steps)
+          analyze? (some #{:analyze} steps)
+          plans-file
+          (if generate? (generate-plans args) (first args))]
+      (log/info "generate?" generate? "parse?" parse? "analyze?" analyze?)
+      (if parse?
+        (let [parse-file (parse-plans plans-file)]
+          (if analyze? (analyze-plans parse-file)))))))

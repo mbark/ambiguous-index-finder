@@ -1,9 +1,11 @@
-(ns ambig-index-finder.queries
+(ns ambig-index-finder.generator
   (:require [clojure.data.json :as json]
             [clojure.java.jdbc :as j]
+            [environ.core :as environ]
             [clojure.string :refer [join trim]]
             [clojure.tools.logging :as log]))
 
+(def db-specs (load-string (slurp (environ/env :db-config-file))))
 (def query-dir "resources/queries")
 
 (defn- resample-with! [db-spec n]
@@ -44,16 +46,15 @@
     repetitions
     #(sample-and-query db-spec id sample-size)))
 
-(defn compare-query [db-spec query-id [sample-size & r] repetitions]
+(defn- plans-for-query [db-spec query-id [sample-size & r] repetitions]
   (if (nil? sample-size)
     []
     (cons
       (repeat-query db-spec query-id sample-size repetitions)
-      (compare-query db-spec query-id r repetitions))))
+      (plans-for-query db-spec query-id r repetitions))))
 
-(defn compare-queries [db-spec [query & r] sample-sizes repetitions]
-  (if (nil? query)
-    []
-    (cons
-      (compare-query db-spec query sample-sizes repetitions)
-      (compare-queries db-spec r sample-sizes repetitions))))
+(defn generate-plans [opts]
+  (plans-for-query ((:database opts) db-specs)
+                   (:query opts)
+                   (:samplesizes opts)
+                   (:repetitions opts)))

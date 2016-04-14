@@ -1,15 +1,5 @@
 (ns ambig-index-finder.parser
-  (:require [clojure.data.json :as json]
-            [clojure.java.io :as io]
-            [clojure.tools.logging :as log]
-            [clojure.walk :refer [postwalk]]))
-
-(def output-dir "output/")
-(def parse-results-dir "parse-results/")
-
-(defn- plans-per-query [opts]
-  (* (count (:samplesizes opts))
-     (:repetitions opts)))
+  (:require [clojure.walk :refer [postwalk]]))
 
 (def index-access-identifier "Alias")
 (def relation-accesses (atom []))
@@ -40,35 +30,8 @@
                           l)))
             (vals access-by-relation))))
 
-(defn analyze-plans-for-query [plans]
+(defn parse-plans [plans]
   (let [accesses (map find-relation-accesses plans)
         by-relation (group-by-relation accesses)
         diff (diff-relation-access by-relation)]
     diff))
-
-(defn analyze-plans-for-all-queries [all-plans]
-  (map
-    #(map analyze-plans-for-query %)
-    all-plans))
-
-(defn- save-parse-result [file-name parse-result]
-  (let [file-path (str parse-results-dir file-name)]
-    (io/make-parents file-path)
-    (spit file-path (json/write-str parse-result))))
-
-(defn -main [& args]
-  (let [file-name (first args)]
-    (if (nil? file-name)
-      (println "File to parse not specified")
-      (do
-        (log/info "Parsing file" file-name)
-        (with-open [reader (io/reader (str output-dir file-name))]
-          (let [lines (line-seq reader)
-                opts (json/read-str (first lines) :key-fn keyword)
-                plans (partition
-                        (plans-per-query opts)
-                        (map json/read-str (rest lines)))
-                parse-result (analyze-plans-for-all-queries plans)]
-            (log/info "Analyzing plans found in" (first args) "which has options" opts)
-            (save-parse-result file-name parse-result)))))))
-
