@@ -10,9 +10,9 @@
 
 (defn- resample-with! [db-spec n]
   (letfn [(exec! [& s]
-                 (do
-                   (log/debug "Executing non-select query" s)
-                   (j/execute! db-spec [(join s)])))]
+            (do
+              (log/debug "Executing non-select query" s)
+              (j/execute! db-spec [(join s)])))]
     (exec! "DELETE FROM pg_statistic;")
     (exec! "SET default_statistics_target TO " n ";")
     (exec! "ANALYZE;")))
@@ -43,15 +43,15 @@
 
 (defn- repeat-query [db-spec id sample-size repetitions]
   (repeatedly
-    repetitions
-    #(sample-and-query db-spec id sample-size)))
+   repetitions
+   #(sample-and-query db-spec id sample-size)))
 
 (defn- plans-for-query [db-spec query-id [sample-size & r] repetitions]
   (if (nil? sample-size)
     []
     (cons
-      (repeat-query db-spec query-id sample-size repetitions)
-      (plans-for-query db-spec query-id r repetitions))))
+     (repeat-query db-spec query-id sample-size repetitions)
+     (plans-for-query db-spec query-id r repetitions))))
 
 (defn generate-plans [opts]
   (plans-for-query ((:database opts) db-specs)

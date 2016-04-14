@@ -18,17 +18,17 @@
 (defn- group-by-relation [accesses]
   (apply merge-with concat
          (map
-           (fn [l] (group-by #(get % index-access-identifier) l))
-           accesses)))
+          (fn [l] (group-by #(get % index-access-identifier) l))
+          accesses)))
 
 (defn- diff-relation-access [access-by-relation]
   (zipmap (keys access-by-relation)
           (map
-            (fn [l]
-              (distinct (map
-                          #(dissoc % "Plan Rows" "Plan Width" "Total Cost")
-                          l)))
-            (vals access-by-relation))))
+           (fn [l]
+             (distinct (map
+                        #(dissoc % "Plan Rows" "Plan Width" "Total Cost")
+                        l)))
+           (vals access-by-relation))))
 
 (defn parse-plans [plans]
   (let [accesses (map find-relation-accesses plans)

@@ -79,27 +79,25 @@
 
 (defn generate-plans [args]
   (let [opts (parse-cli-opts args generate-cli-options)
-           output-file (get-output-file plans-dir)]
-     (log/info "Generating plans with options:" (json/write-str opts))
-     (log/info "The results are saved in" output-file)
-     (progress/set-progress-bar! ":header [:bar] :percent :done/:total (Elapsed: :elapsed seconds, ETA: :eta seconds)")
-     (progress/init "SELECTs executed" (plans-per-query opts))
-     (write-opts opts)
-     (save-plans output-file (generator/generate-plans opts))
-     (log/info "Execution finished")
-     (progress/done)
-     (println (str "Done generating plans, results are saved in " output-file))
-     output-file))
+        output-file (get-output-file plans-dir)]
+    (log/info "Generating plans with options:" (json/write-str opts))
+    (log/info "The results are saved in" output-file)
+    (progress/set-progress-bar! ":header [:bar] :percent :done/:total (Elapsed: :elapsed seconds, ETA: :eta seconds)")
+    (progress/init "SELECTs executed" (plans-per-query opts))
+    (write-opts opts)
+    (save-plans output-file (generator/generate-plans opts))
+    (log/info "Execution finished")
+    (progress/done)
+    (println (str "Done generating plans, results are saved in " output-file))
+    output-file))
 
 (defn- read-plans-from-file [reader]
-  (let [lines (line-seq reader)
-         opts (json/read-str (first lines) :key-fn keyword)
-         plans (partition
-                (:samplesizes opts)
-                (map json/read-str (rest lines)))]
-     [opts plans]))
-
-(parse-plans "output/execution-1459955039")
+  (let [lines (line-seq reader)]
+    opts (json/read-str (first lines) :key-fn keyword)
+    plans (partition
+           (:samplesizes opts)
+           (map json/read-str (rest lines)))
+    [opts plans]))
 
 (defn parse-plans [input-file]
   (with-open [reader (io/reader input-file)]
