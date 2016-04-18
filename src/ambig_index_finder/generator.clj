@@ -8,14 +8,17 @@
 (def db-specs (load-string (slurp (environ/env :db-config-file))))
 (def query-dir "resources/queries")
 
-(defn- resample-with! [db-spec n]
+(defn- read-analyze-query [query-id]
+  (trim (slurp (str query-dir "/" query-id "-analyze.sql"))))
+
+(defn- resample-with! [id db-spec n]
   (letfn [(exec! [& s]
             (do
               (log/debug "Executing non-select query" s)
               (j/execute! db-spec [(join s)])))]
     (exec! "DELETE FROM pg_statistic;")
     (exec! "SET default_statistics_target TO " n ";")
-    (exec! "ANALYZE;")))
+    (exec! (read-analyze-query id))))
 
 (defn- read-query [query-id]
   (trim (slurp (str query-dir "/" query-id ".sql"))))
@@ -38,7 +41,7 @@
 
 (defn- sample-and-query [db-spec id n]
   (do
-    (resample-with! db-spec n)
+    (resample-with! id db-spec n)
     (explain-query db-spec id)))
 
 (defn- repeat-query [db-spec id sample-size repetitions]

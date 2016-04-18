@@ -20,7 +20,7 @@
     :missing "steps to run not specified"]
    ["-q" "--query QUERY" "The query to run"
     :parse-fn str]
-   ["-s" "--samplesizes SAMPLE_SIZES" "The sample sizes per query"
+  ["-s" "--samplesizes SAMPLE_SIZES" "The sample sizes per query"
     :parse-fn #(map read-string (split % #" "))]
    ["-r" "--repetitions REPETITIONS" "The number of repetitions per sample size"
     :parse-fn read-string]
@@ -46,7 +46,7 @@
   (spit file (str (json/write-str opts) "\n")))
 
 (defn- add-plan [file plan]
-  (spit file (str (json/write-str plan) "\n") :append))
+  (spit file (str (json/write-str plan) "\n") :append true))
 
 (defn- save-plans [file plans]
   (let [save-query #(do (add-plan file %)
