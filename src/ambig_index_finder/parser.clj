@@ -31,7 +31,7 @@
            (vals access-by-relation))))
 
 (defn parse-plans [plans]
-  (let [accesses (map find-relation-accesses plans)
+   (let [accesses (map find-relation-accesses plans)
         by-relation (group-by-relation accesses)
         diff (diff-relation-access by-relation)]
-    diff))
+     diff))

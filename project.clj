@@ -30,10 +30,4 @@
              :production {:jvm-opts ["-Dlogfile.path=production"]
                           :env {:clj-env "production"
                                 :db-config-file "resources/config/dev.edn"}}}
-  :aliases {"test-query" ["run" "--queries=pgtest" "--repetitions=2" "--samplesizes=1 2" "--database=postgresql"]
-            "parse" ["run" "-m" "ambig-index-finder.parser"]
-            "start-postgres" ["shell" "sudo" "service" "postgresql-9.5" "start"]
-            "slamhound" ["run" "-m" "slam.hound"]
-            "gen-loadfiles" ["run" "-m" "ambig-index-finder.loadfiles"]
-            "analyze" ["run" "-m" "ambig-index-finder.analyzer"]}
-  :clean-targets [:target-path :compile-path "output" "log"])
+  :clean-targets [:target-path :compile-path "plans" "parses" "analyzes" "log"])

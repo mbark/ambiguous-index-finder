@@ -88,18 +88,22 @@
 (defn- read-plans-from-file [reader]
   (let [lines (line-seq reader)
         opts (json/read-str (first lines) :key-fn keyword)
-        plans (partition
-                (:samplesizes opts)
-                (map json/read-str (rest lines)))]
+        plans (map json/read-str (rest lines))]
     [opts plans]))
 
 (defn parse-plans [input-file]
   (with-open [reader (io/reader input-file)]
     (let [output-file (get-output-file parse-dir)
-          [opts plans] (read-plans-from-file reader)]
+          [opts plans] (read-plans-from-file reader)
+          plans-by-sample (partition
+                           (count (:samplesizes opts))
+                           plans)]
       (log/info "Parsing plans in" input-file "which has options" opts)
       (write-opts output-file opts)
-      (save-parsed-plans output-file (parser/parse-plans plans))
+      (save-parsed-plans output-file
+                         (map
+                          #(parser/parse-plans %)
+                          plans-by-sample))
       (println (str "Done parsing plans, results are saved in " output-file))
       output-file)))
 
@@ -109,7 +113,10 @@
           [opts plans] (read-plans-from-file reader)]
       (log/info "Analyzing plans in" input-file "which has options" opts)
       (write-opts output-file opts)
-      (save-parsed-plans output-file (analyzer/analyze-plans plans))
+      (save-parsed-plans output-file
+                         (map
+                          #(analyzer/analyze-plan %)
+                          plans))
       (println (str "Done analyzing plans, results are saved in " output-file))
       output-file)))
 
