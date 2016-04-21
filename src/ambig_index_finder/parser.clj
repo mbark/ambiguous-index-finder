@@ -1,24 +1,29 @@
 (ns ambig-index-finder.parser
   (:require [clojure.walk :refer [postwalk]]))
 
-(def index-access-identifier "Alias")
+(def postgresindex-access-identifier "Alias")
 (def relation-accesses (atom []))
 
+(defn db->index-access-identifier [db]
+  (cond
+    (= db :postgresql) "Alias"
+    (= db :mariadb) "table"))
+
 ;; Not the best solution, but the easiest in this case
-(defn- save-if-relation-access [o]
-  (if (and (map? o) (contains? o index-access-identifier))
+(defn- save-if-relation-access [db o]
+  (if (and (map? o) (contains? o (db->index-access-identifier db)))
     (swap! relation-accesses conj o))
   o)
 
-(defn- find-relation-accesses [plan]
+(defn- find-relation-accesses [db plan]
   (reset! relation-accesses [])
-  (postwalk save-if-relation-access plan)
+  (postwalk #(save-if-relation-access db %) plan)
   @relation-accesses)
 
-(defn- group-by-relation [accesses]
+(defn- group-by-relation [db accesses]
   (apply merge-with concat
          (map
-          (fn [l] (group-by #(get % index-access-identifier) l))
+          (fn [l] (group-by #(get % (db->index-access-identifier db)) l))
           accesses)))
 
 (defn- diff-relation-access [access-by-relation]
@@ -30,8 +35,8 @@
                         l)))
            (vals access-by-relation))))
 
-(defn parse-plans [plans]
-   (let [accesses (map find-relation-accesses plans)
-        by-relation (group-by-relation accesses)
+(defn parse-plans [db plans]
+   (let [accesses (map #(find-relation-accesses db %) plans)
+        by-relation (group-by-relation db accesses)
         diff (diff-relation-access by-relation)]
      diff))

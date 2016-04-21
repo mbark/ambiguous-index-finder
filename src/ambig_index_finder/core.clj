@@ -49,11 +49,11 @@
   (spit file (str (json/write-str plan) "\n") :append true))
 
 (defn- save-plans [file plans]
-  (let [save-query #(do (add-plan file %)
+  (let [save-query #(do (add-plan file (deref %))
                         (progress/tick))
         save-results-per-repetition #(dorun (map save-query %))
         save-results-per-sample #(dorun (map save-results-per-repetition %))]
-    (dorun (map save-results-per-sample plans))))
+    (save-results-per-sample plans)))
 
 (defn- save-parsed-plans [file plans]
   (dorun (map
@@ -96,13 +96,13 @@
     (let [output-file (get-output-file parse-dir)
           [opts plans] (read-plans-from-file reader)
           plans-by-sample (partition
-                           (count (:samplesizes opts))
+                           (:repetitions opts)
                            plans)]
       (log/info "Parsing plans in" input-file "which has options" opts)
       (write-opts output-file opts)
       (save-parsed-plans output-file
                          (map
-                          #(parser/parse-plans %)
+                          #(parser/parse-plans (keyword (:database opts)) %)
                           plans-by-sample))
       (println (str "Done parsing plans, results are saved in " output-file))
       output-file)))
