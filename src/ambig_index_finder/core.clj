@@ -91,6 +91,9 @@
         plans (map json/read-str (rest lines))]
     [opts plans]))
 
+(defn- opts->db [opts]
+  (keyword (:database opts)))
+
 (defn parse-plans [input-file]
   (with-open [reader (io/reader input-file)]
     (let [output-file (get-output-file parse-dir)
@@ -102,7 +105,7 @@
       (write-opts output-file opts)
       (save-parsed-plans output-file
                          (map
-                          #(parser/parse-plans (keyword (:database opts)) %)
+                          #(parser/parse-plans (opts->db opts) %)
                           plans-by-sample))
       (println (str "Done parsing plans, results are saved in " output-file))
       output-file)))
@@ -113,12 +116,11 @@
           [opts plans] (read-plans-from-file reader)]
       (log/info "Analyzing plans in" input-file "which has options" opts)
       (write-opts output-file opts)
-      (save-parsed-plans output-file
-                         (map
-                          #(analyzer/analyze-plan %)
-                          plans))
-      (println (str "Done analyzing plans, results are saved in " output-file))
-      output-file)))
+      (let [analysis (map #(analyzer/analyze-plan (opts->db opts) %) plans)]
+        (save-parsed-plans output-file analysis)
+        (println (str "Done analyzing plans, results are saved in " output-file))
+        (json/pprint analysis)
+        output-file))))
 
 (defn -main [& args]
   (let [opts (parse-cli-opts args)

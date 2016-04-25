@@ -6,7 +6,8 @@
             [clojure.walk :refer [postwalk prewalk]]
             [clojure.tools.logging :as log]))
 
-(def  db-specs (load-string (slurp (environ/env :db-config-file))))
+(def db-specs (load-string (slurp (environ/env :db-config-file))))
+(def db-connection (atom {:connection nil}))
 (def query-dir "resources/queries")
 
 (defn- read-analyze-query [query-id]
@@ -24,11 +25,10 @@
    (str "SET default_statistics_target TO " n ";")
    (read-analyze-query id)])
 
-(defn- resample-with! [id db n]
+(defn- resample-with! [db-con db id n]
   (let [exec! (fn [s]
-                (do
-                  (log/debug "Executing non-select query" s)
-                  (j/execute! (db db-specs) [s])))
+                (log/debug "Executing non-select query" s)
+                (j/execute! db-con [s]))
         stmts (cond
                 (= db :mariadb) (resample-mariadb-statements id n)
                 (= db :postgresql) (resample-postgres-statements id n))]
@@ -37,9 +37,10 @@
 (defn- read-query [query-id]
   (trim (slurp (str query-dir "/" query-id ".sql"))))
 
-(defn- execute-query [db query]
+(defn- execute-query [db-con params query]
   (log/debug "Executing select-query" query)
-  (j/query (db db-specs) query))
+  (try (j/query db-con [query params])
+       (catch Exception e (str "Caught exception: " (.getMessage e)))))
 
 (defn- format-query-result [db res]
   (cond
@@ -51,31 +52,36 @@
          (.getValue)
          (json/read-str))))
 
-(defn- explain-query [db id]
+(defn- explain-query [db-con db id params]
   (->> id
        (read-query)
        (str (cond
               (= db :mariadb) "EXPLAIN "
               (= db :postgresql) "EXPLAIN (ANALYZE FALSE, FORMAT JSON) "))
-       (vector)
-       (execute-query db)
+       (execute-query db-con params)
        (format-query-result db)))
 
-(defn- sample-and-query [db id n]
+(defn- sample-and-query [db-con db id n]
   (delay
-    (resample-with! id db n)
-    (explain-query db id)))
+    (resample-with! db-con db id n)
+    (map
+     #(explain-query db-con db id %)
+     (range 1 1000))))
 
-(defn- repeat-query [db id sample-size repetitions]
+(defn- repeat-query [db-con db id sample-size repetitions]
   (repeatedly
    repetitions
-   #(sample-and-query db id sample-size)))
+   #(sample-and-query db-con db id sample-size)))
 
-(defn- plans-for-query [db query-id sample-sizes repetitions]
-  (map #(repeat-query db query-id % repetitions) sample-sizes))
+(defn- plans-for-query [db-con db query-id sample-sizes repetitions]
+  (map #(repeat-query db-con db query-id % repetitions) sample-sizes))
 
 (defn generate-plans [opts]
-  (plans-for-query (:database opts)
+  (swap! db-connection
+         (assoc :connection
+                (j/get-connection ((:database opts) db-specs))))
+  (plans-for-query {:connection @db-connection}
+                   (:database opts)
                    (:query opts)
                    (:samplesizes opts)
                    (:repetitions opts)))
