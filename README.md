@@ -1,5 +1,5 @@
 # ambiguous-index-finder
-The tool developer for my master thesis, which in turn can be found (https://github.com/mbark/master_thesis)[here]. The focus of the thesis is the performance of query optimizers' and more specifically how much of an effect the sample size used to estimate statistics of the tables affects the index selection.
+The tool developer for my master thesis, which in turn can be found [https://github.com/mbark/master_thesis](here). The focus of the thesis is the performance of query optimizers' and more specifically how much of an effect the sample size used to estimate statistics of the tables affects the index selection.
 
 This tool allows analysis of a database by allowing the user to resample data, find the resulting query plan and save it. Following this the tool allows the resulting data to be parsed, providing all index selections used in all plans, and then analyzed to see the total number of different access methods used to access the same relation.
 
@@ -60,7 +60,7 @@ Below is given a more in-detail description of each of the parameters and their 
 ### steps
 The steps parameter describe the steps to run, valid parameters are: generate, parse and analyze. If the generate step is not called the first parameter given to lein run should be the file to do the parsing or analysis of.
 
-It is not possible to do a generate and analyze only (that is using steps='generate analyze'), if this is attempted only the generate step will be executed.
+It is not possible to do a generate and analyze only (that is using `steps='generate analyze'`), if this is attempted only the generate step will be executed.
 
 ### query
 The query parameter identifies which query to evaluate. The query should be a normal query, the necessary parameters to add such as "DESCRIBE" will be added automatically. It is important that there exists a corresponding file describing how to analyze the tables used by the query.
