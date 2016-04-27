@@ -49,11 +49,10 @@
   (spit file (str (json/write-str plan) "\n") :append true))
 
 (defn- save-plans [file plans]
-  (let [save-query #(do (add-plan file (deref %))
-                        (progress/tick))
-        save-results-per-repetition #(dorun (map save-query %))
-        save-results-per-sample #(dorun (map save-results-per-repetition %))]
-    (save-results-per-sample plans)))
+  (doseq [results-per-sample plans]
+    (doseq [results-per-repetition results-per-sample]
+      (add-plan file (deref results-per-repetition))
+      (progress/tick))))
 
 (defn- save-parsed-plans [file plans]
   (dorun (map
@@ -76,8 +75,9 @@
         output-file (get-output-file plans-dir)]
     (log/info "Generating plans with options:" (json/write-str opts))
     (log/info "The results are saved in" output-file)
+    (println (str "Saving generated plans to file " output-file))
     (progress/set-progress-bar! ":header [:bar] :percent :done/:total (Elapsed: :elapsed seconds, ETA: :eta seconds)")
-    (progress/init "SELECTs executed" (plans-per-query opts))
+    (progress/init "Samples gathered" (plans-per-query opts))
     (write-opts output-file opts)
     (save-plans output-file (generator/generate-plans opts))
     (log/info "Execution finished")
@@ -135,4 +135,6 @@
       (log/info "generate?" generate? "parse?" parse? "analyze?" analyze?)
       (if parse?
         (let [parse-file (parse-plans plans-file)]
-          (if analyze? (analyze-plans parse-file)))))))
+          (if analyze? (analyze-plans parse-file)))
+        (if (and (not generate?) analyze?)
+          (analyze-plans plans-file))))))

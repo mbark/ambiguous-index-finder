@@ -78,9 +78,10 @@
 
 (defn generate-plans [opts]
   (swap! db-connection
-         (assoc :connection
-                (j/get-connection ((:database opts) db-specs))))
-  (plans-for-query {:connection @db-connection}
+         assoc
+         :connection
+         (j/get-connection ((:database opts) db-specs)))
+  (plans-for-query @db-connection
                    (:database opts)
                    (:query opts)
                    (:samplesizes opts)

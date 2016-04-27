@@ -16,15 +16,15 @@
 
 (defn db->index-access-identifier [db]
   (cond
-    (= db :postgresql) "Alias"
-    (= db :mariadb) "table"))
+    (= db :postgresql) "Index Name"
+    (= db :mariadb) "key"))
 
 (defn analyze-plan [db plan]
   (zipmap
    (keys plan)
    (map
     (fn [accesses]
-      (count (distinct-by
-              #(get % (db->index-access-identifier db))
-              accesses)))
+      (distinct-by
+       #(get % (db->index-access-identifier db))
+       accesses))
     (vals plan))))
