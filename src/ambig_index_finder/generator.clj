@@ -9,6 +9,8 @@
 (def db-specs (load-string (slurp (environ/env :db-config-file))))
 (def db-connection (atom {:connection nil}))
 (def query-dir "resources/queries")
+;; the highest value is 347130, maybe switch to that value?
+(def param-range (range 1 347130))
 
 (defn- read-analyze-query [query-id]
   (trim (slurp (str query-dir "/" query-id "-analyze.sql"))))
@@ -25,14 +27,19 @@
    (str "SET default_statistics_target TO " n ";")
    (read-analyze-query id)])
 
-(defn- resample-with! [db-con db id n]
+(defn- resample-with! [options]
   (let [exec! (fn [s]
                 (log/debug "Executing non-select query" s)
-                (j/execute! db-con [s]))
-        stmts (cond
-                (= db :mariadb) (resample-mariadb-statements id n)
-                (= db :postgresql) (resample-postgres-statements id n))]
-        (dorun (map exec! stmts))))
+                (j/execute! (:connection options) [s]))
+        stmts (case (:database options)
+                :mariadb (resample-mariadb-statements
+                          (:query options)
+                          (:sample-size options))
+                :postgresql (resample-postgres-statements
+                             (:query options)
+                             (:sample-size options)))]
+    (doseq [stmt stmts]
+      (exec! stmt))))
 
 (defn- read-query [query-id]
   (trim (slurp (str query-dir "/" query-id ".sql"))))
@@ -43,46 +50,38 @@
        (catch Exception e (str "Caught exception: " (.getMessage e)))))
 
 (defn- format-query-result [db res]
-  (cond
-    (= db :mariadb) {:access-methods res}
-    (= db :postgresql)
-    (->> res
-         (first)
-         ((keyword "query plan"))
-         (.getValue)
-         (json/read-str))))
+  (case db
+    :mariadb res
+    :postgresql (->> res
+                     (first)
+                     ((keyword "query plan"))
+                     (.getValue)
+                     (json/read-str))))
 
-(defn- explain-query [db-con db id params]
-  (->> id
+(defn- explain-query [options params]
+  (->> (:query options)
        (read-query)
-       (str (cond
-              (= db :mariadb) "EXPLAIN "
-              (= db :postgresql) "EXPLAIN (ANALYZE FALSE, FORMAT JSON) "))
-       (execute-query db-con params)
-       (format-query-result db)))
+       (str (case (:database options)
+              :mariadb "EXPLAIN "
+              :postgresql "EXPLAIN (ANALYZE FALSE, FORMAT JSON) "))
+       (execute-query (:connection options) params)
+       (format-query-result (:database options))))
 
-(defn- sample-and-query [db-con db id n]
-  (delay
-    (resample-with! db-con db id n)
-    (map
-     #(explain-query db-con db id %)
-     (range 1 1000))))
+(defn- sample-and-query [save-plan options]
+  (resample-with! options)
+  (doseq [param param-range]
+    (save-plan (explain-query options param))))
 
-(defn- repeat-query [db-con db id sample-size repetitions]
-  (repeatedly
-   repetitions
-   #(sample-and-query db-con db id sample-size)))
+(defn- opts->db-info [opts]
+  ((:database opts)
+   db-specs))
 
-(defn- plans-for-query [db-con db query-id sample-sizes repetitions]
-  (map #(repeat-query db-con db query-id % repetitions) sample-sizes))
-
-(defn generate-plans [opts]
-  (swap! db-connection
-         assoc
-         :connection
-         (j/get-connection ((:database opts) db-specs)))
-  (plans-for-query @db-connection
-                   (:database opts)
-                   (:query opts)
-                   (:samplesizes opts)
-                   (:repetitions opts)))
+(defn generate-plans [opts save-plan]
+  (j/with-db-connection [db-con (opts->db-info opts)]
+    (doseq [sample-size (:samplesizes opts)]
+      (dotimes [i (:repetitions opts)]
+       (sample-and-query save-plan
+                         (assoc
+                          opts
+                          :sample-size sample-size
+                          :connection db-con))))))

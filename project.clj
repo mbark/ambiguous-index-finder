@@ -4,7 +4,6 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :main ambig-index-finder.core
-  :jvm-opts ["-Xmx4G"]
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [postgresql "9.3-1102.jdbc41"]
                  [mysql/mysql-connector-java "5.1.38"]
@@ -18,17 +17,24 @@
                                                     com.sun.jmx/jmxri]]
                  [org.clojure/tools.cli "0.3.3"]
                  [intervox/clj-progress "0.2.1"]
-                 [slamhound "1.5.5"]]
+                 [slamhound "1.5.5"]
+                 [cheshire "5.6.1"]]
   :plugins [[lein-environ "1.0.0"]
             [lein-shell "0.5.0"]]
+  :jvm-opts ["-Dcom.sun.management.jmxremote"
+             "-Dcom.sun.management.jmxremote.ssl=false"
+             "-Dcom.sun.management.jmxremote.authenticate=false"
+             "-Dcom.sun.management.jmxremote.port=43210"
+             "-Xmx2G"]
   :profiles {:dev        {:jvm-opts ["-Dlogfile.path=development"]
                           :env {:clj-env "development"
-                                :db-config-file "resources/config/dev.edn"
-                                :transfer-info "resources/config/transfer-info.edn" }}
+                                :db-config-file "resources/config/dev.edn"}}
              :test       {:jvm-opts ["-Dlogfile.path=test"]
                           :env {:clj-env "test"
                                 :db-config-file "resources/config/dev.edn"}}
              :production {:jvm-opts ["-Dlogfile.path=production"]
                           :env {:clj-env "production"
-                                :db-config-file "resources/config/dev.edn"}}}
+                                :db-config-file "resources/config/dev.edn"}}
+             :uberjar {:aot :all
+                       :env {:db-config-file "resources/config/dev.edn"}}}
   :clean-targets [:target-path :compile-path "plans" "parses" "analyzes" "log"])

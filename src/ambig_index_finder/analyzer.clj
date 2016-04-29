@@ -1,30 +1,25 @@
 (ns ambig-index-finder.analyzer)
 
-(defn distinct-by
-    "Returns a lazy sequence of the elements of coll, removing any elements that return duplicate values when passed to a function f."
-  [f coll]
-  (let [step (fn step [xs seen]
-               (lazy-seq
-                ((fn [[x :as xs] seen]
-                   (when-let [s (seq xs)]
-                     (let [fx (f x)]
-                       (if (contains? seen fx)
-                         (recur (rest s) seen)
-                         (cons x (step (rest s) (conj seen fx)))))))
-                 xs seen)))]
-    (step coll #{})))
+(defn- idx-key [db]
+  (case db
+    :postgresql (keyword "Index Name")
+    :mariadb :key))
 
-(defn db->index-access-identifier [db]
-  (cond
-    (= db :postgresql) "Index Name"
-    (= db :mariadb) "key"))
+(defn conj-distinct [f x y]
+  (reduce
+   (fn [coll v]
+     (if (some #(= (f %) (f v)) coll)
+       coll
+       (conj coll v)))
+   x y))
 
-(defn analyze-plan [db plan]
-  (zipmap
-   (keys plan)
-   (map
-    (fn [accesses]
-      (distinct-by
-       #(get % (db->index-access-identifier db))
-       accesses))
-    (vals plan))))
+(defn analyze-plans [db next-plan plans-to-read]
+  (loop [m {} plans-left plans-to-read]
+    (if (zero? plans-left)
+      m
+      (recur
+       (merge-with
+        #(conj-distinct (fn [access] (get access (idx-key db)))
+                        %1 %2)
+        m (next-plan))
+       (dec plans-left)))))

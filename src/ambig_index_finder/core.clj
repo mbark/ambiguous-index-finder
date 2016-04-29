@@ -1,8 +1,10 @@
 (ns ambig-index-finder.core
+  (:gen-class)
   (:require [ambig-index-finder.generator :as generator]
             [ambig-index-finder.parser :as parser]
             [ambig-index-finder.analyzer :as analyzer]
             [clj-progress.core :as progress]
+            [cheshire.core :as cheshire]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
             [clojure.string :refer [split]]
@@ -30,7 +32,8 @@
 (defn plans-per-query [opts]
   (*
    (count (:samplesizes opts))
-   (:repetitions opts)))
+   (:repetitions opts)
+   (count generator/param-range)))
 
 (defn- get-output-file [dir]
   (let
@@ -45,19 +48,15 @@
 (defn- write-opts [file opts]
   (spit file (str (json/write-str opts) "\n")))
 
-(defn- add-plan [file plan]
-  (spit file (str (json/write-str plan) "\n") :append true))
+(defn- add-plan [writer plan]
+  (cheshire/generate-stream plan writer)
+  (.write writer "\n")
+  (.flush writer))
 
-(defn- save-plans [file plans]
-  (doseq [results-per-sample plans]
-    (doseq [results-per-repetition results-per-sample]
-      (add-plan file (deref results-per-repetition))
-      (progress/tick))))
-
-(defn- save-parsed-plans [file plans]
-  (dorun (map
-          #(do (add-plan file %))
-          plans)))
+(defn- save-generated-plan [file plan]
+  (with-open [writer (io/writer file :append true)]
+    (add-plan writer plan)
+    (progress/tick)))
 
 (defn- print-cli-error [cli-opts]
   (print "Missing options: ")
@@ -76,20 +75,21 @@
     (log/info "Generating plans with options:" (json/write-str opts))
     (log/info "The results are saved in" output-file)
     (println (str "Saving generated plans to file " output-file))
-    (progress/set-progress-bar! ":header [:bar] :percent :done/:total (Elapsed: :elapsed seconds, ETA: :eta seconds)")
-    (progress/init "Samples gathered" (plans-per-query opts))
+    (progress/init "SELECTs executed" (plans-per-query opts))
     (write-opts output-file opts)
-    (save-plans output-file (generator/generate-plans opts))
+    (generator/generate-plans opts #(save-generated-plan output-file %))
     (log/info "Execution finished")
     (progress/done)
     (println (str "Done generating plans, results are saved in " output-file))
     output-file))
 
-(defn- read-plans-from-file [reader]
-  (let [lines (line-seq reader)
-        opts (json/read-str (first lines) :key-fn keyword)
-        plans (map json/read-str (rest lines))]
-    [opts plans]))
+(defn- read-json [reader]
+  (if-let [line (.readLine reader)]
+    (json/read-str line :key-fn keyword)))
+
+(defn- save-parsed-plan [file plan]
+  (with-open [writer (io/writer file :append true)]
+    (add-plan writer plan)))
 
 (defn- opts->db [opts]
   (keyword (:database opts)))
@@ -97,36 +97,54 @@
 (defn parse-plans [input-file]
   (with-open [reader (io/reader input-file)]
     (let [output-file (get-output-file parse-dir)
-          [opts plans] (read-plans-from-file reader)
-          plans-by-sample (partition
-                           (:repetitions opts)
-                           plans)]
+          opts (read-json reader)]
       (log/info "Parsing plans in" input-file "which has options" opts)
+      (println (str "Parsing plans, results are saved in " output-file))
+      (progress/init "Plans parsed" (plans-per-query opts))
       (write-opts output-file opts)
-      (save-parsed-plans output-file
-                         (map
-                          #(parser/parse-plans (opts->db opts) %)
-                          plans-by-sample))
+      (dotimes [i (plans-per-query opts)]
+        (save-parsed-plan output-file
+                          (parser/parse-plan
+                           (opts->db opts)
+                           (read-json reader)))
+        (progress/tick))
       (println (str "Done parsing plans, results are saved in " output-file))
       output-file)))
+
+(defn- read-plans-from-file [reader]
+  (let [lines (line-seq reader)
+        opts (json/read-str (first lines) :key-fn keyword)
+        plans (map json/read-str (rest lines))]
+    [opts plans]))
 
 (defn analyze-plans [input-file]
   (with-open [reader (io/reader input-file)]
     (let [output-file (get-output-file analyze-dir)
-          [opts plans] (read-plans-from-file reader)]
+          opts (read-json reader)
+          plan-count (plans-per-query opts)
+          plans-per-analysis (/ plan-count (count (:samplesizes opts)))
+          analyzes (/ plan-count plans-per-analysis)]
       (log/info "Analyzing plans in" input-file "which has options" opts)
+      (println (str "Analyzing plans, results are saved in " output-file))
+      (progress/init "Plans read for analysis" plan-count)
       (write-opts output-file opts)
-      (let [analysis (map #(analyzer/analyze-plan (opts->db opts) %) plans)]
-        (save-parsed-plans output-file analysis)
-        (println (str "Done analyzing plans, results are saved in " output-file))
-        (json/pprint analysis)
-        output-file))))
+      (dotimes [i analyzes]
+        (let [analysis (analyzer/analyze-plans
+                        (opts->db opts)
+                        #(do (progress/tick)
+                             (read-json reader))
+                        plans-per-analysis)]
+          (save-parsed-plan output-file analysis)
+          (json/pprint analysis)))
+      (println (str "Done analyzing plans, results are saved in " output-file))
+      output-file)))
 
 (defn -main [& args]
   (let [opts (parse-cli-opts args)
         steps (:steps opts)]
     (log/debug "Calling main with arguments:" args)
     (log/info "Executing steps" steps)
+    (progress/set-progress-bar! ":header [:bar] :percent :done/:total (Elapsed: :elapsed seconds, ETA: :eta seconds)")
     (let [generate? (some #{:generate} steps)
           parse? (some #{:parse} steps)
           analyze? (some #{:analyze} steps)
