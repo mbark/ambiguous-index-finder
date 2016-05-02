@@ -3,7 +3,7 @@
 
 (def relation-accesses (atom []))
 
-(defn db->index-access-identifier [db]
+(defn access-key [db]
   (case db
     :postgresql :Alias
     :mariadb :table))
@@ -25,5 +25,5 @@
    accesses))
 
 (defn parse-plan [db plan]
-  (let [db-id (db->index-access-identifier db)]
+  (let [db-id (access-key db)]
     (group-by-relation db-id (find-relation-accesses db-id plan))))

@@ -21,11 +21,7 @@
                  [cheshire "5.6.1"]]
   :plugins [[lein-environ "1.0.0"]
             [lein-shell "0.5.0"]]
-  :jvm-opts ["-Dcom.sun.management.jmxremote"
-             "-Dcom.sun.management.jmxremote.ssl=false"
-             "-Dcom.sun.management.jmxremote.authenticate=false"
-             "-Dcom.sun.management.jmxremote.port=43210"
-             "-Xmx2G"]
+  :jvm-opts ["-Xmx2G"]
   :profiles {:dev        {:jvm-opts ["-Dlogfile.path=development"]
                           :env {:clj-env "development"
                                 :db-config-file "resources/config/dev.edn"}}

@@ -135,6 +135,7 @@
                              (read-json reader))
                         plans-per-analysis)]
           (save-parsed-plan output-file analysis)
+          (println)
           (json/pprint analysis)))
       (println (str "Done analyzing plans, results are saved in " output-file))
       output-file)))
